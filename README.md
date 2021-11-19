@@ -5,7 +5,15 @@ Unlike other formats, IndentText does not have any types other than ascii-like t
 
 ### Example
 
-```
+```go
+import (
+	"github.com/adedomin/indenttext"
+	"strings"
+	"fmt"
+)
+
+func main() {
+	myConfigFile := strings.NewReader(`
 Key: Value
 List of Values:
   1
@@ -33,30 +41,19 @@ List of Values:
 # to escape a list start delimiter (:)
 # use a content end marker (')
 this is not a list of values:'
-```
-
-### Usage
-
-```
-// Where file contains:
-// something: something else
-myConfigFile, err := os.Open("file")
-if err != nil {
-    panic(err)
-}
-
-err := indenttext.Parse(
-    myConfigFile,
-    func (parents []string, item string, typeof ItemType) bool {
-        fmt.Printf("%s - %s\n", item, typeof)
-        return false // return true to cancel parsing
-    },
-)
-if err != nil {
-    panic(err)
+`)
+	err := indenttext.Parse(
+		myConfigFile,
+		func (parents []string, item string, typeof indenttext.ItemType) bool {
+			fmt.Printf("%s, %s - %s\n", parents, item, typeof)
+			return false // return true to cancel parsing
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
 }
 ```
-
 
 ### Todo
 
@@ -67,3 +64,5 @@ if err != nil {
 ### Inspired by
 
 [Deco - Delimiter Collision Free Format](https://github.com/Enhex/Deco)
+package main
+
