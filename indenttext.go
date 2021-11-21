@@ -110,6 +110,14 @@ func (p *parser) nextLine() error {
 	return nil
 }
 
+func (p *parser) buildConfError(context string, col int) error {
+	return &ConfigError{
+		context: context,
+		line:    p.lineno,
+		col:     col,
+	}
+}
+
 func (p *parser) iterParse(fn Visitor) error {
 	var err error
 	var stack []string
@@ -155,86 +163,63 @@ func (p *parser) iterParse(fn Visitor) error {
 		// find name: value pair start (": ")
 		nvPairNameEnd := -1
 		foundNVPairMaybe := false
-		for ; i < end; i++ {
-			if p.line[i] == ':' {
-				foundNVPairMaybe = true
-			} else if foundNVPairMaybe && p.line[i] == ' ' {
-				nvPairNameEnd = i - 1
-			} else if foundNVPairMaybe {
-				foundNVPairMaybe = false
+		// For the sake of purity, if a line begins with a
+		// content start delimiter, it cannot be an Name-Value pair 
+		if !foundContentStart {
+			for ; i < end; i++ {
+				if p.line[i] == ':' {
+					foundNVPairMaybe = true
+				} else if foundNVPairMaybe && p.line[i] == ' ' {
+					nvPairNameEnd = i - 1
+					break
+				} else if foundNVPairMaybe {
+					foundNVPairMaybe = false
+				}
 			}
 		}
 
 		switch (endToken) {
 		case ':':
-			if start == end && !foundContentStart {
+			if start == end && !foundContentStart { // Close
 				if (len(stack) == 0) {
-					return &ConfigError{
-						context: "Too many compound terminators ':'",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Too many compound terminators ':'", start)
 				}
 
 				poppedKey := stack[len(stack)-1]
 				stack = stack[:len(stack)-1]
 				if fn(stack, poppedKey, Closed) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Canceled", start)
 				}
-			} else {
+			} else { // Key
 				newKey := string(p.line[start:end])
 				if fn(stack, newKey, Key) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Canceled", start)
 				}
 				stack = append(stack, newKey)
 			}
 		default:
-			if nvPairNameEnd != -1 {
+			if nvPairNameEnd == -1 { // Value
+				newVal := string(p.line[start:end])
+				if fn(stack, newVal, Value) {
+					return p.buildConfError("Canceled", start)
+				}
+			} else { // Name-Value Pair
 				newKey := string(p.line[start:nvPairNameEnd])
 				if fn(stack, newKey, Key) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Canceled", start)
 				}
 
 				stack = append(stack, newKey)
 				newVal := string(p.line[nvPairNameEnd+2:end])
 				if fn(stack, newVal, Value) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Canceled", start)
 				}
 				stack = stack[:len(stack)-1]
 
 				if fn(stack, newKey, Closed) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
+					return p.buildConfError("Canceled", start)
 				}
-			} else {
-				newVal := string(p.line[start:end])
-				if fn(stack, newVal, Value) {
-					return &ConfigError {
-						context: "Canceled",
-						line: p.lineno,
-						col: 0,
-					}
-				}
-			}
+			} 
 		}
 	}
 
