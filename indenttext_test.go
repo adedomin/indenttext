@@ -203,9 +203,10 @@ func TestAnonymousLists(t *testing.T) {
 }
 
 func TestEscapes(t *testing.T) {
-	i := 1
+	i := 0
 	err := Parse(
 		strings.NewReader(`
+:'
 'not-a: key-value
 'not-a: key-value:'
 is-a: key-value''
@@ -214,9 +215,14 @@ not a list:'
 is a: list:
  9
 :
+''
+''''
 `),
 		func (p []string, item string, it ItemType) bool {
 			switch i {
+			case 0:
+				assertEqual(t, i, it, Value)
+				assertEqual(t, i, item, ":")
 			case 1:
 				assertEqual(t, i, it, Value)
 				assertEqual(t, i, item, "not-a: key-value")
@@ -244,6 +250,15 @@ is a: list:
 			case 9:
 				assertEqual(t, i, it, Value)
 				assertEqual(t, i, item, "9")
+			case 10:
+				assertEqual(t, i, it, Closed)
+				assertEqual(t, i, item, "is a: list")
+			case 11:
+				assertEqual(t, i, it, Value)
+				assertEqual(t, i, item, "")
+			case 12:
+				assertEqual(t, i, it, Value)
+				assertEqual(t, i, item, "''")
 			}
 			i++
 			return false

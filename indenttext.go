@@ -28,13 +28,13 @@ import (
 )
 
 // Error with a message, line and column context
-type ConfigError struct {
+type ParseError struct {
 	context string
 	line int
 	col int
 }
 
-func (e *ConfigError) Error() string {
+func (e *ParseError) Error() string {
 	return fmt.Sprintf(
 		"line:%d col:%d Error: %s",
 		e.line, e.col, e.context,
@@ -78,7 +78,7 @@ func (p *parser) nextLine() error {
 
 	lim := len(p.line) // intentional byte length function
 	if lim > p.lineLenLimit {
-		return &ConfigError{
+		return &ParseError{
 			context: "Line is too long",
 			line:    p.lineno,
 			col:     lim,
@@ -95,7 +95,7 @@ func (p *parser) nextLine() error {
 
 			lim += len(tline)
 			if lim > p.lineLenLimit {
-				return &ConfigError{
+				return &ParseError{
 					context: "Line is too long",
 					line:    p.lineno,
 					col:     lim,
@@ -111,7 +111,7 @@ func (p *parser) nextLine() error {
 }
 
 func (p *parser) buildConfError(context string, col int) error {
-	return &ConfigError{
+	return &ParseError{
 		context: context,
 		line:    p.lineno,
 		col:     col,
@@ -224,7 +224,7 @@ func (p *parser) iterParse(fn Visitor) error {
 	}
 
 	if err == io.EOF && len(stack) > 1 {
-		return &ConfigError{
+		return &ParseError{
 			context: "Unterminated compound group, not enough ':'",
 			line: p.lineno,
 			col: 0,
